@@ -43,23 +43,32 @@ def convert_to_numbers(arr):
     num_arr = np.vectorize(num_dict.get)(arr)
     return num_arr
 
+def convert_labels(raw_label, labels):
+    for label in labels:
+        name, value = label[0], label[1]
+        id = ord(name[0]) + (ord(name[1])<<8) + (ord(name[2])<<16) + (ord(name[3])<<24)  
+        raw_label[raw_label==id] = value
 
-def pcd2bin(path):
+    return raw_label
+    pass
+
+def pcd2bin(path, labels):
     points = load_from_pcd(path)
 
     if points is None:
         return None
 
     points_without_label = coord_conver(points[:,:3])
-    new_label = convert_to_numbers(points[:,-1])
+    # new_label = convert_to_numbers(points[:,-1])
+    new_label = convert_labels(points[:,-1], labels)
     points = np.hstack((points_without_label, new_label.reshape(-1,1)))
     points = np.array(points, dtype=np.float32)
     save_path = path + '.bin'
     save_path = path.replace("pcd", "bin")
     points.tofile(save_path)
 
-def convert_format(folder_path):
+def convert_format(folder_path, labels):
     for path in glob.glob(folder_path._str +"/*.pcd"):
-        pcd2bin(path)
+        pcd2bin(path, labels)
 
     
