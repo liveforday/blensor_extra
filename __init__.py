@@ -14,6 +14,7 @@ import os
 import bpy
 from .scan_animation import ScanAnimation
 from .scan_animation_group import ScanAnimationGroup, FollowConstraint, load_object_from,delete_hierarchy,set_animation,LabelList, StringList
+from .join_part import obj2blend
 from pathlib import Path
 
 class ScanAnimationPanel(bpy.types.Panel):
@@ -202,6 +203,106 @@ class AddFiles(bpy.types.Operator):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
+class JoinPartsPanel(bpy.types.Panel):
+    bl_label = "Join Parts"
+    bl_idname = "OBJECT_PT_Join_parts"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category = "Blensor"
+
+
+    def draw(self, context):
+        layout = self.layout
+
+        row = layout.row()
+        row.operator("extrablensor.join_parts", text="Join Parts")
+
+        row = layout.row()
+        row.prop(context.scene, "extrablensor_join_part_path")
+
+        row = layout.row()
+        row.operator("extrablensor.add_part", text="add_part")
+
+
+        for i, input_data in enumerate(context.scene.extrablensor_parts):
+            box = layout.box()
+            row = box.row()
+            row.prop(input_data, "name", text="Input #" + str(i+1))
+
+            delete_op = row.operator("extrablensor.remove_part", text="", icon="X")
+            delete_op.index = i
+
+        row = layout.row()
+        row.label(text="Select obj files:")
+        row.operator("extrablensor.select_obj", text="", icon="PLUS")
+        for item in context.scene.extrablensor_selected_objs:
+            row = layout.row()
+            row.label(text=item.name)
+
+class JoinPartsOperator(bpy.types.Operator):
+    bl_label = "Join Parts"
+    bl_idname = "extrablensor.join_parts"
+
+    def execute(self, context):
+        parts_name=[]
+        for item in context.scene.extrablensor_parts:
+            parts_name.append(item.name)
+
+        save_path = context.scene.extrablensor_join_part_path
+
+        for item in context.scene.extrablensor_selected_objs:
+            obj_path = Path(item.name)
+            obj2blend(parts_name, obj_path, save_path)
+        return {'FINISHED'}
+        
+    
+class AddPart(bpy.types.Operator):
+    bl_idname = "extrablensor.add_part"
+    bl_label = "Add Parts"
+
+    def execute(self, context):
+        input_parts = context.scene.extrablensor_parts
+        input_data = input_parts.add()
+        input_data.name = "Input #" + str(len(input_parts))
+        return {'FINISHED'}
+ 
+class RemovePart(bpy.types.Operator):
+    bl_idname = "extrablensor.remove_part"
+    bl_label = "remove Part"
+
+    index = bpy.props.IntProperty()
+
+    def execute(self, context):
+        input_parts = context.scene.extrablensor_parts
+        input_parts.remove(self.index)
+        return {'FINISHED'}
+    
+
+class SelectObj(bpy.types.Operator):
+    bl_idname = "extrablensor.select_obj"
+    bl_label = "Select obj file"
+
+    files= bpy.props.CollectionProperty(
+        type=bpy.types.OperatorFileListElement
+    )
+    
+    directory = bpy.props.StringProperty(subtype="FILE_PATH")
+
+    def execute(self, context):
+        # Use Blender's file browser to select multiple files
+        context.scene.extrablensor_selected_objs.clear()
+        for file in self.files:
+            filepath = self.directory + file.name
+            item = context.scene.extrablensor_selected_objs.add()
+            item.name = filepath
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+
+
 def register():
     bpy.utils.register_class(ScanAnimationPanel)
     bpy.utils.register_class(ScanAnimationGroupPanel) 
@@ -212,7 +313,6 @@ def register():
     bpy.utils.register_class(LabelList)
     bpy.utils.register_class(RecordFollowParamOperator)
     bpy.utils.register_class(FollowConstraint)
-
 
 
     bpy.types.Scene.tobin = bpy.props.BoolProperty(
@@ -255,6 +355,19 @@ def register():
     bpy.types.Scene.extrablensor_obj_parts = bpy.props.CollectionProperty(type=LabelList)
     bpy.types.Scene.extrablensor_follow_param = bpy.props.PointerProperty(type=FollowConstraint)
 
+    bpy.utils.register_class(JoinPartsPanel)
+    bpy.utils.register_class(AddPart)
+    bpy.utils.register_class(RemovePart)
+    bpy.utils.register_class(SelectObj)
+    bpy.utils.register_class(JoinPartsOperator)
+    bpy.types.Scene.extrablensor_parts = bpy.props.CollectionProperty(type=StringList)
+    bpy.types.Scene.extrablensor_selected_objs = bpy.props.CollectionProperty(type=StringList)
+    bpy.types.Scene.extrablensor_join_part_path = bpy.props.StringProperty(
+        name="Folder Path",
+        description = "Folder path to use",
+        default = "D:/data/",
+        subtype='DIR_PATH'
+    )
 
 
 def unregister():
@@ -265,5 +378,8 @@ def unregister():
     bpy.utils.unregister_class(AddFiles)
     bpy.utils.unregister_class(RecordFollowParamOperator)
 
+    bpy.utils.unregister_class(JoinPartsPanel)
+    bpy.utils.unregister_class(AddPart)
+    bpy.utils.unregister_class(RemovePart)
 if __name__ == "__main__":
     register()
