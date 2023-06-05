@@ -18,12 +18,12 @@ def scan_range1(scanner_object,
                 add_blender_mesh=False, 
                 add_noisy_blender_mesh=False, 
                 angle_resolution = 0.1728,
-                max_distance = 120.0,
+                max_distance = 300.0,
                 noise_mu = 0.0,
                 noise_sigma= 0.02,
                 last_frame = True,
                 world_transformation=Matrix(),
-                src_angle=-60.0, des_angle=60.0):
+                src_angle=0.0, des_angle=360.0):
     
     start_time = time.time()
     angle_per_second = 360.0 * rotation_speed

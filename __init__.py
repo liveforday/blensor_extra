@@ -79,6 +79,10 @@ class ScanAnimationGroupPanel(bpy.types.Panel):
         row.prop(context.scene.extrablensor_follow_param, "start_frame")
         row.prop(context.scene.extrablensor_follow_param, "end_frame")
         row.enabled = False
+
+        row = layout.row()
+        layout.prop(context.scene, "random_path", text="path random")
+        row.operator("extrablensor.record_parts", text="Apply")
        
         for item in context.scene.extrablensor_obj_parts:
             row = layout.row()
@@ -110,22 +114,31 @@ class ScanAnimationGroupOperator(bpy.types.Operator):
         save_path = context.scene.extrablensor_group_folder_path
         num_of_set = context.scene.extrablensor_numofset
         tobin = context.scene.tobin_group
+        random_path = context.scene.random_path
         labels = []
         for item in context.scene.extrablensor_obj_parts:
             label = [item.name, item.value] 
             labels.append(label)
-        first = context.scene.extrablensor_selected_files[0]
-        first_path = Path(first.name)
-        delete_hierarchy(bpy.data.objects[first_path.stem])
+        # first = context.scene.extrablensor_selected_files[0]
+        # first_path = Path(first.name)
+        obj = bpy.data.objects[context.scene.extrablensor_follow_param.obj]
+        delete_hierarchy(obj)
+
         for blend_file in context.scene.extrablensor_selected_files:
             blend_path = Path(blend_file.name)
             load_object_from(blend_path)
-            obj = bpy.data.objects[blend_path.stem]
-            set_animation(context.scene.extrablensor_follow_param, obj )
+            follow_param = context.scene.extrablensor_follow_param
+
+            if follow_param.path == follow_param.obj:
+                obj_new = bpy.data.objects[blend_path.stem]
+                set_animation(context.scene.extrablensor_follow_param, obj_new )
+                
+                
             print("generator")
 
             cloud_generator = ScanAnimationGroup()
             cloud_generator.set_tobin(tobin)
+            cloud_generator.set_random_path(random_path)
             cloud_generator.number_of_sets(num_of_set)
             cloud_generator.set_save_path(save_path, blend_path.stem,'L')
             cloud_generator.set_label(labels)
@@ -135,10 +148,10 @@ class ScanAnimationGroupOperator(bpy.types.Operator):
 
             delete_hierarchy(bpy.data.objects[blend_path.stem])
 
-        load_object_from(first_path)
-        obj = bpy.data.objects[first_path.stem]
-        set_animation(context.scene.extrablensor_follow_param, obj)
-
+        load_object_from(context.scene.extrablensor_follow_param.obj)
+        # if not obj:
+        #     obj_new = bpy.data.objects[context.scene.extrablensor_follow_param.obj]
+        #     set_animation(context.scene.extrablensor_follow_param, obj_new)
         
         return {'FINISHED'}
 
@@ -152,6 +165,7 @@ class RecordFollowParamOperator(bpy.types.Operator):
         follow_path_constraint = obj.constraints.get(context.scene.extrablensor_follow_param.name)
 
         if follow_path_constraint is not None:
+            context.scene.extrablensor_follow_param.path = obj.name
             context.scene.extrablensor_follow_param.offset = follow_path_constraint.offset_factor
             context.scene.extrablensor_follow_param.forward_axis = follow_path_constraint.forward_axis
             context.scene.extrablensor_follow_param.up_axis = follow_path_constraint.up_axis
@@ -162,6 +176,16 @@ class RecordFollowParamOperator(bpy.types.Operator):
         else:
             print("target has no follow path constraint")
 
+        return {'FINISHED'}
+
+class RecordParts(bpy.types.Operator):
+    bl_idname = "extrablensor.record_parts"
+    bl_label = "Record Parts"
+
+    def execute(self, context):
+        obj = bpy.context.object
+        context.scene.extrablensor_follow_param.obj = obj.name
+
         context.scene.extrablensor_obj_parts.clear()
         i = 0
         for child  in bpy.context.selected_objects[0].children:
@@ -170,8 +194,9 @@ class RecordFollowParamOperator(bpy.types.Operator):
             item.value = i
             i += 1
             pass
-        print("record")
+        print("record parts")
         return {'FINISHED'}
+
     
 class AddFiles(bpy.types.Operator):
     bl_idname = "extrablensor.addfiles"
@@ -313,6 +338,7 @@ def register():
     bpy.utils.register_class(LabelList)
     bpy.utils.register_class(RecordFollowParamOperator)
     bpy.utils.register_class(FollowConstraint)
+    bpy.utils.register_class(RecordParts)
 
 
     bpy.types.Scene.tobin = bpy.props.BoolProperty(
@@ -329,6 +355,11 @@ def register():
     bpy.types.Scene.tobin_group = bpy.props.BoolProperty(
         name="tobin_group",
         description = "if convert pcd to bin",
+        default = True
+    )
+    bpy.types.Scene.random_path = bpy.props.BoolProperty(
+        name="random_path",
+        description = "if random path",
         default = True
     )
 
@@ -377,6 +408,7 @@ def unregister():
     bpy.utils.unregister_class(ScanAnimationGroupOperator)
     bpy.utils.unregister_class(AddFiles)
     bpy.utils.unregister_class(RecordFollowParamOperator)
+    
 
     bpy.utils.unregister_class(JoinPartsPanel)
     bpy.utils.unregister_class(AddPart)

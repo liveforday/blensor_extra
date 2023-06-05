@@ -22,6 +22,9 @@ class LabelList(bpy.types.PropertyGroup):
 
 class FollowConstraint(bpy.types.PropertyGroup):
     name = bpy.props.StringProperty(name="Follow Path", default="Follow Path")
+    path = bpy.props.StringProperty(name="path")
+    obj = bpy.props.StringProperty(name="obj")
+
     target = bpy.props.PointerProperty(type=bpy.types.Object)
     offset = bpy.props.IntProperty(name="offset", default = 0, options={'HIDDEN', "SKIP_SAVE"})
     forward_axis = bpy.props.StringProperty(name="Forward")
@@ -70,6 +73,7 @@ class ScanAnimationGroup():
         self.num_of_sets = 0
         self.num_of_frame = 0
         self.tobin = False
+        self.random_flag = True
         self.labels = None
         bpy.context.scene.camera = bpy.data.objects['Camera']
 
@@ -119,7 +123,7 @@ class ScanAnimationGroup():
     
     def random_camera_pos(self):
         obj = bpy.data.objects['Camera']
-        obj.location.z = random.uniform(5, 8)
+        obj.location.z = random.uniform(6, 8)
         pass
     
     def remove_binfile(self, path):
@@ -134,11 +138,15 @@ class ScanAnimationGroup():
 
     def set_label(self, labels):
         self.labels = labels
+
+    def set_random_path(self, random_flag):
+        self.random_flag = random_flag
     
     def generate(self):
         for path in self.filepaths: 
-            self.random_path()
-            self.random_camera_pos()
+            if self.random_flag:
+                self.random_path()
+                self.random_camera_pos()
             scan_start(1, self.num_of_frame, str(path), 0.01) 
             self.remove_binfile(str(path))
             if self.tobin:
