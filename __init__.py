@@ -81,8 +81,15 @@ class ScanAnimationGroupPanel(bpy.types.Panel):
         row.enabled = False
 
         row = layout.row()
-        layout.prop(context.scene, "random_path", text="path random")
+        row.prop(context.scene, "random_path", text="path random")
+        row.prop(context.scene, "cam_pos", text="random camera")
+
+        row = layout.row()
+        row.prop(context.scene, "low_limit", text="Low limit")
+        row.prop(context.scene, "top_limit", text="Top limit")
+        
         row.operator("extrablensor.record_parts", text="Apply")
+
        
         for item in context.scene.extrablensor_obj_parts:
             row = layout.row()
@@ -113,8 +120,11 @@ class ScanAnimationGroupOperator(bpy.types.Operator):
     def execute(self, context):
         save_path = context.scene.extrablensor_group_folder_path
         num_of_set = context.scene.extrablensor_numofset
+
         tobin = context.scene.tobin_group
         random_path = context.scene.random_path
+        cam_pos = context.scene.cam_pos
+        range = [context.scene.low_limit, context.scene.top_limit]
         labels = []
         for item in context.scene.extrablensor_obj_parts:
             label = [item.name, item.value] 
@@ -139,6 +149,7 @@ class ScanAnimationGroupOperator(bpy.types.Operator):
             cloud_generator = ScanAnimationGroup()
             cloud_generator.set_tobin(tobin)
             cloud_generator.set_random_path(random_path)
+            cloud_generator.set_random_cam_pos(cam_pos, range)
             cloud_generator.number_of_sets(num_of_set)
             cloud_generator.set_save_path(save_path, blend_path.stem,'L')
             cloud_generator.set_label(labels)
@@ -362,6 +373,25 @@ def register():
         description = "if random path",
         default = True
     )
+    bpy.types.Scene.cam_pos = bpy.props.BoolProperty(
+        name="cam_pos",
+        description = "if random camera height",
+        default = True
+    )
+
+    bpy.types.Scene.top_limit = bpy.props.IntProperty(
+        name="top_limit",
+        description = "camera position top limit",
+        default = 8,
+        subtype='UNSIGNED'
+        )
+
+    bpy.types.Scene.low_limit = bpy.props.IntProperty(
+        name="low_limit",
+        description = "camera position low limit",
+        default = 5,
+        subtype='UNSIGNED'
+        )
 
     bpy.types.Scene.extrablensor_group_folder_path = bpy.props.StringProperty(
         name="Folder Path",

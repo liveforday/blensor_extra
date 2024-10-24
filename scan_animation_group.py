@@ -75,6 +75,8 @@ class ScanAnimationGroup():
         self.tobin = False
         self.random_flag = True
         self.labels = None
+        self.cam_pos = True
+        self.range = [5,8]
         bpy.context.scene.camera = bpy.data.objects['Camera']
 
     
@@ -121,9 +123,9 @@ class ScanAnimationGroup():
             pos_world.x = random.uniform(-2,2)
             point.co = mat_world.inverted()* pos_world 
     
-    def random_camera_pos(self):
+    def random_camera_pos(self, range):
         obj = bpy.data.objects['Camera']
-        obj.location.z = random.uniform(6, 8)
+        obj.location.z = random.uniform(range[0], range[1])
         pass
     
     def remove_binfile(self, path):
@@ -141,12 +143,18 @@ class ScanAnimationGroup():
 
     def set_random_path(self, random_flag):
         self.random_flag = random_flag
+
+    def set_random_cam_pos(self, cam_pos, range):
+        self.cam_pos = cam_pos
+        self.range = range
     
     def generate(self):
         for path in self.filepaths: 
             if self.random_flag:
                 self.random_path()
-                self.random_camera_pos()
+
+            if self.cam_pos:
+                self.random_camera_pos(self.range)
             scan_start(1, self.num_of_frame, str(path), 0.01) 
             self.remove_binfile(str(path))
             if self.tobin:
