@@ -117,128 +117,142 @@ class ScanAnimationGroupPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
+        
+        self.draw_animation_path_panel(context)
+        
+        row = layout.row()
+        row.label(text="Range Key Frame && Camera Height", icon="INFO")
+        self.draw_animation_keyframe_range(context)
+        self.draw_camera_range(context)
+        self.draw_mark_object_parts(context)
+        self.draw_output_setting(context)
+        self.draw_select_files(context)
+
+        row = layout.row(align=True)
+        row.label("")
+        row.operator("extrablensor.scan_animation_group", text="Scan animation group")
+        
+    def draw_animation_path_panel(self, context):
+        scan_props = context.scene.scan_props
+        layout = self.layout
         row = layout.row()
         row.label(text="Animation Path", icon="INFO")
         row = layout.row()
-        row.prop(context.scene.extrablensor_follow_param, "name")
+        row.prop(scan_props, "follow_path_edit")
         split = layout.split(percentage=0.33)
         split.label(text="Direct:")
-        split.prop(context.scene.path_props, "direct", text=context.scene.path_props.direct_name(), toggle=True)
+        split.prop(scan_props, "direct", text=scan_props.direct_label, toggle=True)
+    
         col = layout.column()
-        col.prop(context.scene.extrablensor_follow_param, "forward_axis")
-        col.prop(context.scene.extrablensor_follow_param, "up_axis")
-        # row.prop(context.scene.extrablensor_follow_param, "offset")
+        col.prop(scan_props.follow_path, "forward_axis")
+        col.prop(scan_props.follow_path, "up_axis")
         col.enabled = False
         
         row = layout.row()
         sub = row.column()
         sub.enabled = False
-        sub.prop(context.scene.extrablensor_follow_param, "use_curve_follow")
-        row.prop(context.scene, "random_path", text="Path random")
+        sub.prop(scan_props.follow_path, "use_curve_follow")
+        row.prop(scan_props, "is_random_path")
         
-       
         row = layout.row()
         row.label(text="")
         row.operator("extrablensor.record_follow_param", text="  Apply")
         layout.separator()
-
-        row = layout.row()
-        row.label(text="Animation Key Frame Range", icon="INFO")
+        
+    def draw_animation_keyframe_range(self, context):
+        scan_props = context.scene.scan_props
+        layout = self.layout
         row = layout.row(align=True)
-        row.prop(context.scene.extrablensor_follow_param, "start_frame")
-        row.prop(context.scene.extrablensor_follow_param, "end_frame")
+        row.prop(scan_props.follow_path, "start_frame")
+        row.prop(scan_props.follow_path, "end_frame")
         row.enabled = False
-
-        row = layout.row()
-        row.label(text="")
-        row.operator("extrablensor.mark_parks", text="Mark Parts")
+        
+    def draw_camera_range(self, context):
+        scan_props = context.scene.scan_props
+        layout = self.layout
+        row = layout.row(align=True)
+        row.prop(scan_props, "cam_height_lower")
+        row.prop(scan_props, "cam_height_higher")
         layout.separator()
         
-       
-        ####
+    def draw_mark_object_parts(self, context):
+        scan_props = context.scene.scan_props
+        layout = self.layout
         row = layout.row()
-        row.label(text="Output Param", icon="INFO")
-        row = layout.row()
-        row.prop(context.scene, "extrablensor_group_folder_path")
-        row = layout.row()
-        row.prop(context.scene, "tobin_group", text="tobin")
-        row.prop(context.scene, "extrablensor_numofset")
-        layout.separator()
-
+        row.label(text="Mark Object Part", icon="INFO")
         box = layout.box()
-        box.label("Aircraft Parts: ")
-        for item in context.scene.extrablensor_obj_parts:
+        row = box.row();
+        row.label("Mark Object Parts: ")
+        row.operator("extrablensor.mark_parks", text="Mark Parts")
+        for item in scan_props.obj_parts:
             row = box.row()
             row.label(text=item.name + ":")
             row.prop(item, "value")
         layout.separator()
-                    
+    
+    def draw_output_setting(self, context):
+        scan_props = context.scene.scan_props
+        layout = self.layout
+        row = layout.row()
+        row.label(text="Output Setting", icon="INFO")
+        row = layout.row()
+        row.prop(scan_props, "output_path")
+        row = layout.row()
+        row.prop(scan_props, "tobin", text="tobin")
+        row.prop(scan_props, "numofset")
+        layout.separator()
+        
+    def draw_select_files(self, context):
+        scan_props = context.scene.scan_props
+        layout = self.layout
+        row = layout.row()
+        row.label(text="Select Files", icon="INFO")
         box = layout.box()
         row = box.row()
         row.label(text="Select files:")
         row.operator("extrablensor.addfiles", text="", icon="PLUS")
-        #col = box.column()
-        for item in context.scene.extrablensor_selected_files:
+        for item in scan_props.files_to_convert:
             box.label(text=item.name)
-        # row = layout.row()
-        # row.operator("extrablensor.addfiles", text="")
-
-        row = layout.row(align=True)
-        row.label("")
-        row.operator("extrablensor.scan_animation_group", text="Scan animation group")
-
+        
 class ScanAnimationGroupOperator(bpy.types.Operator):
     bl_idname = "extrablensor.scan_animation_group"
     bl_label = "Scan Animation Group"
 
     def execute(self, context):
-        save_path = context.scene.extrablensor_group_folder_path
-        num_of_set = context.scene.extrablensor_numofset
-
-        tobin = context.scene.tobin_group
-        random_path = context.scene.random_path
-        cam_pos = context.scene.cam_pos
-        range = [context.scene.low_limit, context.scene.top_limit]
-        labels = []
-        for item in context.scene.extrablensor_obj_parts:
-            label = [item.name, item.value] 
-            labels.append(label)
-        # first = context.scene.extrablensor_selected_files[0]
-        # first_path = Path(first.name)
-        obj = bpy.data.objects[context.scene.extrablensor_follow_param.obj]
+        scan_props = context.scene.scan_props
+        obj = bpy.data.objects[scan_props.follow_path.obj]
         delete_hierarchy(obj)
 
-        for blend_file in context.scene.extrablensor_selected_files:
+        for blend_file in scan_props.files_to_convert:
             blend_path = Path(blend_file.name)
             load_object_from(blend_path)
-            follow_param = context.scene.extrablensor_follow_param
 
-            if follow_param.path == follow_param.obj:
+            if scan_props.follow_path.path == scan_props.follow_path.obj:
                 obj_new = bpy.data.objects[blend_path.stem]
-                set_animation(context.scene.extrablensor_follow_param, obj_new )
-                
+                set_animation(scan_props.follow_path, obj_new )
                 
             print("generator")
 
             cloud_generator = CloudGenerator()
-            cloud_generator.set_tobin(tobin)
-            cloud_generator.set_random_path(random_path)
-            cloud_generator.set_random_cam_pos(cam_pos, range)
-            cloud_generator.number_of_sets(num_of_set)
-            cloud_generator.set_save_path(save_path, blend_path.stem,'L')
-            cloud_generator.set_label(labels)
+            cloud_generator.set_tobin(scan_props.tobin)
+            cloud_generator.set_random_path(scan_props.is_random_path)
+            cloud_generator.set_random_cam_pos(context.scene.cam_pos, [scan_props.cam_height_lower, scan_props.cam_height_higher])
+            cloud_generator.number_of_sets(scan_props.numofset)
+            cloud_generator.set_save_path(scan_props.output_path, blend_path.stem,'')
+            cloud_generator.set_label(self.get_part_marks(scan_props.obj_parts))
             cloud_generator.set_path_name('aircraft_path')
             cloud_generator.generate()
-
-
             delete_hierarchy(bpy.data.objects[blend_path.stem])
 
-        load_object_from(context.scene.extrablensor_follow_param.obj)
-        # if not obj:
-        #     obj_new = bpy.data.objects[context.scene.extrablensor_follow_param.obj]
-        #     set_animation(context.scene.extrablensor_follow_param, obj_new)
-        
+        load_object_from(scan_props.follow_path.obj)
         return {'FINISHED'}
+    
+    def get_part_marks(self, obj_parts):
+        labels = []
+        for item in obj_parts:
+            label = [item.name, item.value] 
+            labels.append(label)
+        return labels
                
 class ApplyAnimationFollowPathOperator(bpy.types.Operator):
     bl_idname = "extrablensor.record_follow_param"
@@ -246,18 +260,19 @@ class ApplyAnimationFollowPathOperator(bpy.types.Operator):
 
     def execute(self, context):
         # context.scene.extrablensor_follow_param.clear()
+        scan_props = context.scene.scan_props
         obj = bpy.context.object
-        follow_path_constraint = obj.constraints.get(context.scene.extrablensor_follow_param.name)
+        follow_path_constraint = obj.constraints.get(scan_props.follow_path.name)
 
         if follow_path_constraint is not None:
-            context.scene.extrablensor_follow_param.path = obj.name
-            context.scene.extrablensor_follow_param.offset = follow_path_constraint.offset_factor
-            context.scene.extrablensor_follow_param.forward_axis = follow_path_constraint.forward_axis
-            context.scene.extrablensor_follow_param.up_axis = follow_path_constraint.up_axis
-            context.scene.extrablensor_follow_param.use_curve_follow = follow_path_constraint.use_curve_follow
-            context.scene.extrablensor_follow_param.target = follow_path_constraint.target
-            context.scene.extrablensor_follow_param.start_frame = context.scene.frame_start
-            context.scene.extrablensor_follow_param.end_frame = context.scene.frame_end
+            scan_props.follow_path.path             = obj.name
+            scan_props.follow_path.offset           = follow_path_constraint.offset_factor
+            scan_props.follow_path.forward_axis     = follow_path_constraint.forward_axis
+            scan_props.follow_path.up_axis          = follow_path_constraint.up_axis
+            scan_props.follow_path.use_curve_follow = follow_path_constraint.use_curve_follow
+            scan_props.follow_path.target           = follow_path_constraint.target
+            scan_props.follow_path.start_frame      = context.scene.frame_start
+            scan_props.follow_path.end_frame        = context.scene.frame_end
         else:
             print("target has no follow path constraint")
 
@@ -269,11 +284,12 @@ class MarkPartsOperator(bpy.types.Operator):
 
     def execute(self, context):
         obj = bpy.context.object
-        context.scene.extrablensor_follow_param.obj = obj.name
-        context.scene.extrablensor_obj_parts.clear()
+        scan_props = context.scene.scan_props
+        scan_props.follow_path.obj = obj.name
+        scan_props.obj_parts.clear()
         i = 0
         for child  in bpy.context.selected_objects[0].children:
-            item = context.scene.extrablensor_obj_parts.add()
+            item = scan_props.obj_parts.add()
             item.name = child.name
             item.value = i
             i += 1
@@ -297,11 +313,12 @@ class AddFilesOperator(bpy.types.Operator):
     directory = bpy.props.StringProperty(subtype="FILE_PATH")
 
     def execute(self, context):
+        scan_props = context.scene.scan_props
         # Use Blender's file browser to select multiple files
-        context.scene.extrablensor_selected_files.clear()
+        scan_props.files_to_convert.clear()
         for file in self.files:
             filepath = self.directory + file.name
-            item = context.scene.extrablensor_selected_files.add()
+            item = scan_props.files_to_convert.add()
             item.name = filepath
             pass
 
@@ -310,21 +327,73 @@ class AddFilesOperator(bpy.types.Operator):
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
-    
-class PathSelectProperties(bpy.types.PropertyGroup):
+
+class ScanAnimationGroupProperties(bpy.types.PropertyGroup):
+    follow_path_edit = bpy.props.StringProperty(
+        name = "Follow Path",
+        default = "Follow Path",
+        subtype='NONE'
+    )
     direct = bpy.props.BoolProperty(
-        name="Left",
-        description="Select the left path",
-        default = True
+        name = "Direct",
+        default = True,
+        update = lambda self, context: self.update_label()
     )
     
-    def direct_name(self):
-        if self.direct:
-            return "Left"
-        else:
-            return "Right"
-        
-class ZZScanAnimationGroup():
+    direct_label = bpy.props.StringProperty(
+        name="Label Text",
+        default = "Left"
+    )
+    
+    follow_path = bpy.props.PointerProperty(type=FollowConstraint)
+    
+    is_random_path = bpy.props.BoolProperty(
+        name = "Path random",
+        default = True,
+    )
+    
+    obj_parts = bpy.props.CollectionProperty(type=LabelList)
+    
+    output_path = bpy.props.StringProperty(
+            name="Output Location",
+            description = "Output Location",
+            default = "D:/data/",
+            subtype='DIR_PATH'
+        )
+    
+    tobin = bpy.props.BoolProperty(
+            name="tobin",
+            description = "if convert pcd to bin",
+            default = True
+        )
+    
+    numofset = bpy.props.IntProperty(
+            name="num of set",
+            description = "num of set",
+            default = 1,
+            subtype='UNSIGNED'
+            )
+    
+    files_to_convert = bpy.props.CollectionProperty(type=StringList)
+       
+    cam_height_higher = bpy.props.IntProperty(
+            name="high limit",
+            description = "camera position top limit",
+            default = 8,
+            subtype='UNSIGNED'
+            )
+
+    cam_height_lower = bpy.props.IntProperty(
+            name="low limit",
+            description = "camera position low limit",
+            default = 5,
+            subtype='UNSIGNED'
+            )
+
+    def update_label(self):
+        self.direct_label = "Left" if self.direct else "Right"
+
+class ScanAnimationGroup():
     
     def __init__(self):
         pass
@@ -332,82 +401,28 @@ class ZZScanAnimationGroup():
     def register(self):
         bpy.utils.register_class(ScanAnimationGroupPanel)
         bpy.utils.register_class(ScanAnimationGroupOperator)
+        bpy.utils.register_class(ApplyAnimationFollowPathOperator)
         bpy.utils.register_class(AddFilesOperator)
+        bpy.utils.register_class(MarkPartsOperator)
+        
         bpy.utils.register_class(StringList)
         bpy.utils.register_class(LabelList)
-        bpy.utils.register_class(ApplyAnimationFollowPathOperator)
         bpy.utils.register_class(FollowConstraint)
-        bpy.utils.register_class(MarkPartsOperator)
-        bpy.utils.register_class(PathSelectProperties)
-        bpy.types.Scene.path_props = bpy.props.PointerProperty(type=PathSelectProperties)
+        bpy.utils.register_class(ScanAnimationGroupProperties)
+        bpy.types.Scene.scan_props = bpy.props.PointerProperty(type=ScanAnimationGroupProperties)
         
-        bpy.types.Scene.extrablensor_folder_path = bpy.props.StringProperty(
-        name="Folder Path",
-        description = "Folder path to use",
-        default = "D:/data/",
-        subtype='DIR_PATH'
-        )
-        bpy.types.Scene.tobin_group = bpy.props.BoolProperty(
-            name="tobin_group",
-            description = "if convert pcd to bin",
-            default = True
-        )
-        bpy.types.Scene.random_path = bpy.props.BoolProperty(
-            name="random_path",
-            description = "if random path",
-            default = True
-        )
-        bpy.types.Scene.cam_pos = bpy.props.BoolProperty(
-            name="cam_pos",
-            description = "if random camera height",
-            default = True
-        )
-
-        bpy.types.Scene.top_limit = bpy.props.IntProperty(
-            name="top_limit",
-            description = "camera position top limit",
-            default = 8,
-            subtype='UNSIGNED'
-            )
-
-        bpy.types.Scene.low_limit = bpy.props.IntProperty(
-            name="low_limit",
-            description = "camera position low limit",
-            default = 5,
-            subtype='UNSIGNED'
-            )
-
-        bpy.types.Scene.extrablensor_group_folder_path = bpy.props.StringProperty(
-            name="Folder Path",
-            description = "Folder path to use",
-            default = "D:/data/",
-            subtype='DIR_PATH'
-        )
-        bpy.types.Scene.extrablensor_select_folder_path = bpy.props.StringProperty(
-            name="Folder Path",
-            description = "Folder path to use",
-            default = "D:/data/",
-            subtype='DIR_PATH'
-        )
-        bpy.types.Scene.extrablensor_numofset = bpy.props.IntProperty(
-            name="num of set",
-            description = "num of set",
-            default = 1,
-            subtype='UNSIGNED'
-            )
-        bpy.types.Scene.extrablensor_selected_files = bpy.props.CollectionProperty(type=StringList)
-        bpy.types.Scene.extrablensor_obj_parts = bpy.props.CollectionProperty(type=LabelList)
-        bpy.types.Scene.extrablensor_follow_param = bpy.props.PointerProperty(type=FollowConstraint)
-
+       
     def unregister(self):
         bpy.utils.unregister_class(ScanAnimationGroupPanel)
         bpy.utils.unregister_class(ScanAnimationGroupOperator)
+        bpy.utils.unregister_class(ApplyAnimationFollowPathOperator)
         bpy.utils.unregister_class(AddFilesOperator)
+        bpy.utils.unregister_class(MarkPartsOperator)
+        
         bpy.utils.unregister_class(StringList)
         bpy.utils.unregister_class(LabelList)
-        bpy.utils.unregister_class(ApplyAnimationFollowPathOperator)
         bpy.utils.unregister_class(FollowConstraint)
-        bpy.utils.unregister_class(MarkPartsOperator)
+        bpy.utils.unregister_class(ScanAnimationGroupProperties)
     
     
 if __name__ == "__main__":

@@ -13,14 +13,14 @@ bl_info = {
 import os
 import sys
 import bpy
-from .scan_animation_group import ZZScanAnimationGroup
+from .scan_animation_group import ScanAnimationGroup
 from .join_part import AAJoinParts
 
-zz = ZZScanAnimationGroup()
+scan = ScanAnimationGroup()
 aa = AAJoinParts()
 
 def register():
-    zz.register()
+    scan.register()
     aa.register()
     # bpy.types.Scene.tobin = bpy.props.BoolProperty(
     #     name="tobin",
