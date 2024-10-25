@@ -14,12 +14,46 @@ from .conver_format import convert_format
 from .scan import scan_start, scan_range1
 
 from pathlib import Path
+
+class ScanAnimationPanel(bpy.types.Panel):
+    bl_label = "Scan Animation"
+    bl_idname = "OBJECT_PT_Scan_animation"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category = "Blensor"
+
+
+    def draw(self, context):
+        layout = self.layout
+
+        row = layout.row()
+        row.operator("extrablensor.scan_animation", text="scan animation")
+
+        layout.prop(context.scene, "tobin", text="tobin")
+
+        row = layout.row()
+        row.prop(context.scene, "extrablensor_folder_path")
+
+class ScanAnimationOperator(bpy.types.Operator):
+    bl_idname = "extrablensor.scan_animation"
+    bl_label = "Scan Animation"
+
+    def execute(self, context):
+        # This is where the code for your operator goes
+        save_path = context.scene.extrablensor_folder_path
+        tobin = context.scene.tobin
+        cloud_generator = ScanAnimation(save_path)
+        cloud_generator.start(tobin)
+        print("scaning")
+        return {'FINISHED'}
+    
 class ScanAnimation():
     def __init__(self, root_path):
         root_path = Path(root_path)
         blendfile = Path(bpy.data.filepath)
         self.filepath = root_path/f'{str(blendfile.stem)}/pcd'
         bin_filepath = root_path/f'{str(blendfile.stem)}/bin'
+        print("filepath:", self.filepath, "bin path: ", bin_filepath)
         if os.path.exists(self.filepath):
             shutil.rmtree(self.filepath)
         os.makedirs(self.filepath)

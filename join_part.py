@@ -1,7 +1,7 @@
 import bpy
 import sys
 import os
-
+from .util import *
 
 def get_context():
     for area in bpy.context.screen.areas:
@@ -104,10 +104,10 @@ def obj2blend(parts_name, obj_path, save_path):
 # import param
 # parts_name = ['body', 'wing', 'engine', 'empennage', 'wheel']
 # parts_name = ['nose','body', 'L_wing', 'R_wing', 'L_engine', 'R_engine', 'empennage', 'wheel']
-# save_path = 'D:/project/vdgs_project/数据/飞机模型库/1.民航/3.blend_model'
-# path = 'D:/project/vdgs_project/数据/飞机模型库/1.民航/2.obj_model/path.txt'
+# save_path = 'D:/project/vdgs_project/数据/飞机模型�?/1.民航/3.blend_model'
+# path = 'D:/project/vdgs_project/数据/飞机模型�?/1.民航/2.obj_model/path.txt'
 
-# # read objpath， change path acroding to os
+# # read objpath�? change path acroding to os
 # f = open(path, 'r', encoding='utf-8')
 # obj_paths_str = f.read().splitlines()
 # obj_paths = []
@@ -122,3 +122,131 @@ def obj2blend(parts_name, obj_path, save_path):
 # bpy.ops.object.delete()
 # for obj_path in obj_paths:
 #     obj2blend(parts_name, obj_path, save_path)
+
+
+from .join_part import obj2blend
+from pathlib import Path
+
+# module_path = os.path.dirname(__file__)
+# print("path :", module_path)
+# sys.path.append(module_path)
+
+# import zz_scan_animation_group
+
+class JoinPartsPanel(bpy.types.Panel):
+    bl_label = "Join Parts"
+    bl_idname = "OBJECT_PT_Join_parts"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category = "Blensor"
+
+
+    def draw(self, context):
+        layout = self.layout
+
+        row = layout.row()
+        row.operator("extrablensor.join_parts", text="Join Parts")
+
+        row = layout.row()
+        row.prop(context.scene, "extrablensor_join_part_path")
+
+        row = layout.row()
+        row.operator("extrablensor.add_part", text="add_part")
+
+
+        for i, input_data in enumerate(context.scene.extrablensor_parts):
+            box = layout.box()
+            row = box.row()
+            row.prop(input_data, "name", text="Input #" + str(i+1))
+
+            delete_op = row.operator("extrablensor.remove_part", text="", icon="X")
+            delete_op.index = i
+
+        row = layout.row()
+        row.label(text="Select obj files:")
+        row.operator("extrablensor.select_obj", text="", icon="PLUS")
+        for item in context.scene.extrablensor_selected_objs:
+            row = layout.row()
+            row.label(text=item.name)
+
+class JoinPartsOperator(bpy.types.Operator):
+    bl_label = "Join Parts"
+    bl_idname = "extrablensor.join_parts"
+
+    def execute(self, context):
+        parts_name=[]
+        for item in context.scene.extrablensor_parts:
+            parts_name.append(item.name)
+
+        save_path = context.scene.extrablensor_join_part_path
+
+        for item in context.scene.extrablensor_selected_objs:
+            obj_path = Path(item.name)
+            obj2blend(parts_name, obj_path, save_path)
+        return {'FINISHED'}
+        
+    
+class AddPart(bpy.types.Operator):
+    bl_idname = "extrablensor.add_part"
+    bl_label = "Add Parts"
+
+    def execute(self, context):
+        input_parts = context.scene.extrablensor_parts
+        input_data = input_parts.add()
+        input_data.name = "Input #" + str(len(input_parts))
+        return {'FINISHED'}
+ 
+class RemovePart(bpy.types.Operator):
+    bl_idname = "extrablensor.remove_part"
+    bl_label = "remove Part"
+
+    index = bpy.props.IntProperty()
+
+    def execute(self, context):
+        input_parts = context.scene.extrablensor_parts
+        input_parts.remove(self.index)
+        return {'FINISHED'}
+    
+
+class SelectObj(bpy.types.Operator):
+    bl_idname = "extrablensor.select_obj"
+    bl_label = "Select obj file"
+
+    files= bpy.props.CollectionProperty(
+        type=bpy.types.OperatorFileListElement
+    )
+    
+    directory = bpy.props.StringProperty(subtype="FILE_PATH")
+
+    def execute(self, context):
+        # Use Blender's file browser to select multiple files
+        context.scene.extrablensor_selected_objs.clear()
+        for file in self.files:
+            filepath = self.directory + file.name
+            item = context.scene.extrablensor_selected_objs.add()
+            item.name = filepath
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+
+class AAJoinParts():
+    def __init__(self):
+        pass
+    
+    def register(self):
+        bpy.utils.register_class(JoinPartsPanel)
+        bpy.utils.register_class(AddPart)
+        bpy.utils.register_class(RemovePart)
+        bpy.utils.register_class(SelectObj)
+        bpy.utils.register_class(JoinPartsOperator)
+        bpy.types.Scene.extrablensor_parts = bpy.props.CollectionProperty(type=StringList)
+        bpy.types.Scene.extrablensor_selected_objs = bpy.props.CollectionProperty(type=StringList)
+        bpy.types.Scene.extrablensor_join_part_path = bpy.props.StringProperty(
+            name="Folder Path",
+            description = "Folder path to use",
+            default = "D:/data/",
+            subtype='DIR_PATH'
+        )
