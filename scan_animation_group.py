@@ -22,7 +22,7 @@ class CloudGenerator():
         self.tobin = False
         self.random_flag = True
         self.labels = None
-        self.cam_pos = True
+        self.is_random_cam = True
         self.range = [5,8]
         bpy.context.scene.camera = bpy.data.objects['Camera']
 
@@ -135,6 +135,7 @@ class ScanAnimationGroupPanel(bpy.types.Panel):
         scan_props = context.scene.scan_props
         self.draw_title("Animation Path")
         row = self.layout.row()
+        row.prop(scan_props, "selectable_obj")
         row.prop(scan_props, "selectable_constraints")
         # split = self.layout.split(percentage=0.33)
         # split.label(text="Direct:")
@@ -149,7 +150,11 @@ class ScanAnimationGroupPanel(bpy.types.Panel):
         sub = row.column()
         sub.enabled = False
         sub.prop(scan_props.follow_path, "use_curve_follow")
-        row.prop(scan_props, "is_random_path")
+        obj = bpy.data.objects[scan_props.selectable_obj]
+        if(obj.type == "EMPTY"):
+            row.prop(scan_props, "is_random_path")
+        elif(obj.type == "CAMERA"):
+            row.prop(scan_props, "is_random_cam")
         
         row = self.layout.row()
         row.label(text="")
@@ -217,6 +222,11 @@ class ScanAnimationGroupOperator(bpy.types.Operator):
         
         scan_props = context.scene.scan_props
         obj = bpy.data.objects[scan_props.follow_path.obj]
+        con_obj = bpy.data.objects[scan_props.selectable_obj]
+        
+        if con_obj.type == "CAMERA":
+            scan_props.is_random_path = False
+            
         delete_hierarchy(obj)
 
         for blend_file in scan_props.files_to_convert:
@@ -232,7 +242,7 @@ class ScanAnimationGroupOperator(bpy.types.Operator):
             cloud_generator = CloudGenerator()
             cloud_generator.set_tobin(scan_props.tobin)
             cloud_generator.set_random_path(scan_props.is_random_path)
-            cloud_generator.set_random_cam_pos(context.scene.cam_pos, [scan_props.cam_height_lower, scan_props.cam_height_higher])
+            cloud_generator.set_random_cam_pos(scan_props.is_random_cam, [scan_props.cam_height_lower, scan_props.cam_height_higher])
             cloud_generator.number_of_sets(scan_props.numofset)
             cloud_generator.set_save_path(scan_props.output_path, blend_path.stem,'')
             cloud_generator.set_label(self.get_part_marks(scan_props.obj_parts))
@@ -273,7 +283,7 @@ class ApplyAnimationFollowPathOperator(bpy.types.Operator):
         if(not self.is_input_validate(context)):
             return {'FINISHED'}
         scan_props = context.scene.scan_props
-        obj = bpy.data.objects[scan_props.markable_obj]
+        obj = bpy.data.objects[scan_props.selectable_obj]
         if(not scan_props.selectable_constraints):
             self.report({'WARNING'}, "No vaild constraint!")
             return {"FINISHED"}
@@ -332,6 +342,8 @@ class AddFilesOperator(bpy.types.Operator):
     #     type=bpy.types.OperatorFileListElement,
     #     options={'REGISTER','INTERNAL'}
     # )
+    filename_ext = ".blend"
+    filter_glob = bpy.props.StringProperty(default="*.blend", options={'HIDDEN'})
 
     files= bpy.props.CollectionProperty(
         type=bpy.types.OperatorFileListElement
@@ -354,13 +366,26 @@ class AddFilesOperator(bpy.types.Operator):
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
+       # return super().invoke(context, event)
 
 class ScanAnimationGroupProperties(bpy.types.PropertyGroup):
     
+    def update_selectable_list(self, context):
+        items = [ (obj.name, obj.name, "") for obj in bpy.data.objects if obj.type == "EMPTY" or obj.type == "CAMERA"]
+        return items
+    
+    selectable_obj =  bpy.props.EnumProperty(
+            name="Object name",
+            description = "Select an object",
+            items=update_selectable_list,
+        )
+    
     def update_selectable_constraints(self, context):
         scan_props = context.scene.scan_props
-        obj = bpy.data.objects[scan_props.markable_obj]
-        items = [(cons.name, cons.name, "") for cons in obj.constraints]
+        obj = bpy.data.objects[scan_props.selectable_obj]
+        items=[]
+        for con in obj.constraints:
+            items.append((con.name, con.name, ""))
         return items
         
     selectable_constraints = bpy.props.EnumProperty(
@@ -389,6 +414,12 @@ class ScanAnimationGroupProperties(bpy.types.PropertyGroup):
         name = "Path random",
         default = True,
     )
+    
+    is_random_cam = bpy.props.BoolProperty(
+        name="Camera random",
+        description = "if random camera height",
+        default = True
+    ) 
     
     obj_parts = bpy.props.CollectionProperty(type=LabelList)
     
@@ -438,6 +469,8 @@ class ScanAnimationGroupProperties(bpy.types.PropertyGroup):
             items=update_markable_list,
         )
     
+   
+    
 class ScanAnimationGroup():
     
     def __init__(self):
@@ -455,11 +488,7 @@ class ScanAnimationGroup():
         bpy.utils.register_class(FollowConstraint)
         bpy.utils.register_class(ScanAnimationGroupProperties)
         bpy.types.Scene.scan_props = bpy.props.PointerProperty(type=ScanAnimationGroupProperties)
-        bpy.types.Scene.cam_pos = bpy.props.BoolProperty(
-            name="cam_pos",
-            description = "if random camera height",
-            default = True
-        )
+
 
        
     def unregister(self):
