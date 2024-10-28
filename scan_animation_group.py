@@ -58,9 +58,9 @@ class CloudGenerator():
         obj = bpy.data.objects[self.path_name]
         path_curves  = obj.data.splines[0]
         key_points = path_curves.points
-        # change path direct
-        key_points[0].co.x = -key_points[0].co.x
-        key_points[1].co.x = -key_points[1].co.x
+        # # change path direct
+        # key_points[0].co.x = -key_points[0].co.x
+        # key_points[1].co.x = -key_points[1].co.x
 
         # change path pos
         key_points = key_points[-5:-2]
@@ -120,8 +120,7 @@ class ScanAnimationGroupPanel(bpy.types.Panel):
         
         self.draw_animation_path_panel(context)
         
-        row = layout.row()
-        row.label(text="Range Key Frame && Camera Height", icon="INFO")
+        self.draw_title("Range Key Frame && Camera Height")
         self.draw_animation_keyframe_range(context)
         self.draw_camera_range(context)
         self.draw_mark_object_parts(context)
@@ -134,91 +133,88 @@ class ScanAnimationGroupPanel(bpy.types.Panel):
         
     def draw_animation_path_panel(self, context):
         scan_props = context.scene.scan_props
-        layout = self.layout
-        row = layout.row()
-        row.label(text="Animation Path", icon="INFO")
-        row = layout.row()
-        row.prop(scan_props, "follow_path_edit")
-        split = layout.split(percentage=0.33)
-        split.label(text="Direct:")
-        split.prop(scan_props, "direct", text=scan_props.direct_label, toggle=True)
+        self.draw_title("Animation Path")
+        row = self.layout.row()
+        row.prop(scan_props, "selectable_constraints")
+        # split = self.layout.split(percentage=0.33)
+        # split.label(text="Direct:")
+        # split.prop(scan_props, "direct", text=scan_props.direct_label, toggle=True)
     
-        col = layout.column()
+        col = self.layout.column()
         col.prop(scan_props.follow_path, "forward_axis")
         col.prop(scan_props.follow_path, "up_axis")
         col.enabled = False
         
-        row = layout.row()
+        row = self.layout.row()
         sub = row.column()
         sub.enabled = False
         sub.prop(scan_props.follow_path, "use_curve_follow")
         row.prop(scan_props, "is_random_path")
         
-        row = layout.row()
+        row = self.layout.row()
         row.label(text="")
         row.operator("extrablensor.record_follow_param", text="  Apply")
-        layout.separator()
+        self.layout.separator()
         
     def draw_animation_keyframe_range(self, context):
         scan_props = context.scene.scan_props
-        layout = self.layout
-        row = layout.row(align=True)
+        row = self.layout.row(align=True)
         row.prop(scan_props.follow_path, "start_frame")
         row.prop(scan_props.follow_path, "end_frame")
         row.enabled = False
         
     def draw_camera_range(self, context):
         scan_props = context.scene.scan_props
-        layout = self.layout
-        row = layout.row(align=True)
+        row = self.layout.row(align=True)
         row.prop(scan_props, "cam_height_lower")
         row.prop(scan_props, "cam_height_higher")
-        layout.separator()
+        self.layout.separator()
         
     def draw_mark_object_parts(self, context):
+        self.draw_title("Mark Object Part")
         scan_props = context.scene.scan_props
-        layout = self.layout
-        row = layout.row()
-        row.label(text="Mark Object Part", icon="INFO")
-        box = layout.box()
-        row = box.row();
-        row.label("Mark Object Parts: ")
+        box = self.layout.box()
+        row = box.row()
+        row.prop(scan_props, "markable_obj")
         row.operator("extrablensor.mark_parks", text="Mark Parts")
         for item in scan_props.obj_parts:
             row = box.row()
             row.label(text=item.name + ":")
             row.prop(item, "value")
-        layout.separator()
+        self.layout.separator()
     
     def draw_output_setting(self, context):
+        self.draw_title("Output Setting")
         scan_props = context.scene.scan_props
-        layout = self.layout
-        row = layout.row()
-        row.label(text="Output Setting", icon="INFO")
-        row = layout.row()
+        row = self.layout.row()
         row.prop(scan_props, "output_path")
-        row = layout.row()
+        row = self.layout.row()
         row.prop(scan_props, "tobin", text="tobin")
         row.prop(scan_props, "numofset")
-        layout.separator()
+        self.layout.separator()
         
     def draw_select_files(self, context):
+        self.draw_title("Select Files")
         scan_props = context.scene.scan_props
-        layout = self.layout
-        row = layout.row()
-        row.label(text="Select Files", icon="INFO")
-        box = layout.box()
+        box = self.layout.box()
         row = box.row()
         row.label(text="Select files:")
-        row.operator("extrablensor.addfiles", text="", icon="PLUS")
+        row.operator("extrablensor.addfiles", text="Add Files")
         for item in scan_props.files_to_convert:
             box.label(text=item.name)
+        
+    def draw_title(self, title):
+        row = self.layout.row()
+        row.label(text=title, icon="INFO")
         
 class ScanAnimationGroupOperator(bpy.types.Operator):
     bl_idname = "extrablensor.scan_animation_group"
     bl_label = "Scan Animation Group"
 
     def execute(self, context):
+        if(not self.is_input_validate(context)):
+            return {'FINISHED'}
+        
         scan_props = context.scene.scan_props
         obj = bpy.data.objects[scan_props.follow_path.obj]
         delete_hierarchy(obj)
@@ -247,6 +243,21 @@ class ScanAnimationGroupOperator(bpy.types.Operator):
         load_object_from(scan_props.follow_path.obj)
         return {'FINISHED'}
     
+    def is_input_validate(self, context):
+        scan_props = context.scene.scan_props
+        if(not scan_props.selectable_constraints):
+            self.report({'WARNING'}, "No vaild Animation Path!")
+            return False
+        
+        if(not scan_props.markable_obj):
+            self.report({'WARNING'}, "No vaild Mark Object!")
+            return False
+        
+        if(not scan_props.files_to_convert):
+            self.report({'WARNING'}, "No vaild Select Files list !")
+            return False
+        return True
+    
     def get_part_marks(self, obj_parts):
         labels = []
         for item in obj_parts:
@@ -259,36 +270,44 @@ class ApplyAnimationFollowPathOperator(bpy.types.Operator):
     bl_label = "Record Follow Path Param"
 
     def execute(self, context):
-        # context.scene.extrablensor_follow_param.clear()
+        if(not self.is_input_validate(context)):
+            return {'FINISHED'}
         scan_props = context.scene.scan_props
-        obj = bpy.context.object
-        follow_path_constraint = obj.constraints.get(scan_props.follow_path.name)
-
-        if follow_path_constraint is not None:
-            scan_props.follow_path.path             = obj.name
-            scan_props.follow_path.offset           = follow_path_constraint.offset_factor
-            scan_props.follow_path.forward_axis     = follow_path_constraint.forward_axis
-            scan_props.follow_path.up_axis          = follow_path_constraint.up_axis
-            scan_props.follow_path.use_curve_follow = follow_path_constraint.use_curve_follow
-            scan_props.follow_path.target           = follow_path_constraint.target
-            scan_props.follow_path.start_frame      = context.scene.frame_start
-            scan_props.follow_path.end_frame        = context.scene.frame_end
-        else:
-            print("target has no follow path constraint")
-
+        obj = bpy.data.objects[scan_props.markable_obj]
+        if(not scan_props.selectable_constraints):
+            self.report({'WARNING'}, "No vaild constraint!")
+            return {"FINISHED"}
+        
+        follow_path_constraint = obj.constraints[scan_props.selectable_constraints]
+        scan_props.follow_path.path             = obj.name
+        scan_props.follow_path.offset           = follow_path_constraint.offset_factor
+        scan_props.follow_path.forward_axis     = follow_path_constraint.forward_axis
+        scan_props.follow_path.up_axis          = follow_path_constraint.up_axis
+        scan_props.follow_path.use_curve_follow = follow_path_constraint.use_curve_follow
+        scan_props.follow_path.target           = follow_path_constraint.target
+        scan_props.follow_path.start_frame      = context.scene.frame_start
+        scan_props.follow_path.end_frame        = context.scene.frame_end
         return {'FINISHED'}
-                
+    
+    def is_input_validate(self, context):
+        scan_props = context.scene.scan_props
+        if(not scan_props.selectable_constraints):
+            self.report({'WARNING'}, "No vaild Animation Path!")
+            return False
+        return True
+              
 class MarkPartsOperator(bpy.types.Operator):
     bl_idname = "extrablensor.mark_parks"
     bl_label = "Mark Parts"
 
     def execute(self, context):
-        obj = bpy.context.object
+        if(not self.is_input_validate(context)):
+            return {'FINISHED'}
         scan_props = context.scene.scan_props
-        scan_props.follow_path.obj = obj.name
+        scan_props.follow_path.obj = scan_props.markable_obj
         scan_props.obj_parts.clear()
         i = 0
-        for child  in bpy.context.selected_objects[0].children:
+        for child  in bpy.data.objects[scan_props.markable_obj].children:
             item = scan_props.obj_parts.add()
             item.name = child.name
             item.value = i
@@ -296,6 +315,14 @@ class MarkPartsOperator(bpy.types.Operator):
             pass
         print("mark parts")
         return {'FINISHED'}
+    
+    def is_input_validate(self, context):
+        scan_props = context.scene.scan_props
+        
+        if(not scan_props.markable_obj):
+            self.report({'WARNING'}, "No vaild Mark Object!")
+            return False
+        return True
 
 class AddFilesOperator(bpy.types.Operator):
     bl_idname = "extrablensor.addfiles"
@@ -329,16 +356,27 @@ class AddFilesOperator(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
 class ScanAnimationGroupProperties(bpy.types.PropertyGroup):
-    follow_path_edit = bpy.props.StringProperty(
-        name = "Follow Path",
-        default = "Follow Path",
-        subtype='NONE'
+    
+    def update_selectable_constraints(self, context):
+        scan_props = context.scene.scan_props
+        obj = bpy.data.objects[scan_props.markable_obj]
+        items = [(cons.name, cons.name, "") for cons in obj.constraints]
+        return items
+        
+    selectable_constraints = bpy.props.EnumProperty(
+        name="Object name",
+        description = "Select an object",
+        items=update_selectable_constraints,
     )
-    direct = bpy.props.BoolProperty(
-        name = "Direct",
-        default = True,
-        update = lambda self, context: self.update_label()
-    )
+    
+    # def update_label(self):
+    #     self.direct_label = "Left" if self.direct else "Right"
+        
+    # direct = bpy.props.BoolProperty(
+    #     name = "Direct",
+    #     default = True,
+    #     update = lambda self, context: self.update_label()
+    # )
     
     direct_label = bpy.props.StringProperty(
         name="Label Text",
@@ -389,10 +427,17 @@ class ScanAnimationGroupProperties(bpy.types.PropertyGroup):
             default = 5,
             subtype='UNSIGNED'
             )
-
-    def update_label(self):
-        self.direct_label = "Left" if self.direct else "Right"
-
+    
+    def update_markable_list(self, context):
+        items = [ (obj.name, obj.name, "") for obj in bpy.data.objects if obj.type == "EMPTY"]
+        return items
+            
+    markable_obj =  bpy.props.EnumProperty(
+            name="Object name",
+            description = "Select an object",
+            items=update_markable_list,
+        )
+    
 class ScanAnimationGroup():
     
     def __init__(self):
@@ -410,7 +455,12 @@ class ScanAnimationGroup():
         bpy.utils.register_class(FollowConstraint)
         bpy.utils.register_class(ScanAnimationGroupProperties)
         bpy.types.Scene.scan_props = bpy.props.PointerProperty(type=ScanAnimationGroupProperties)
-        
+        bpy.types.Scene.cam_pos = bpy.props.BoolProperty(
+            name="cam_pos",
+            description = "if random camera height",
+            default = True
+        )
+
        
     def unregister(self):
         bpy.utils.unregister_class(ScanAnimationGroupPanel)
